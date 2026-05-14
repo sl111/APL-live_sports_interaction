@@ -469,9 +469,6 @@ with right_col:
                 <p style="font-size: 10px; color: #f8fafc; font-weight: 600; margin-bottom: 10px;">Real-time victory chance</p>
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ffffff; font-weight: bold;"><span>{insights['team1_short']}</span><span>{win_prob}%</span></div>
                 <div style="background-color: rgba(255, 255, 255, 0.05); border-radius: 10px; height: 6px; overflow: hidden;"><div style="background-color: #fbbf24; width: {win_prob}%; height: 100%; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div></div>
-            </div>""", unsafe_allow_html=True)
-        except: pass
-
         except: pass
 
 # 🔄 Auto Refresh Logic
