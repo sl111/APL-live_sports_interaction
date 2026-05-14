@@ -138,6 +138,7 @@ def get_global_state():
     return {
         "hype_score": 0,
         "poll_votes": {},
+        "leaderboard": {}, # {Name: Score}
         "match_id": ""
     }
 
@@ -146,6 +147,7 @@ global_state = get_global_state()
 # 📊 Initialize State (Local & Global)
 if "scores" not in st.session_state: st.session_state.scores = []
 if "user_prediction" not in st.session_state: st.session_state.user_prediction = None
+if "fan_name" not in st.session_state: st.session_state.fan_name = ""
 
 # Reset global state if match changes
 current_match_id = f"{insights.get('team1')}_{insights.get('team2')}_{insights.get('date')}"
@@ -153,6 +155,7 @@ if global_state["match_id"] != current_match_id:
     global_state["match_id"] = current_match_id
     global_state["hype_score"] = 0
     global_state["poll_votes"] = {}
+    global_state["leaderboard"] = {}
     from memory.commentary_memory import clear_history
     clear_history()
     st.session_state.scores = []
@@ -381,10 +384,18 @@ with left_col:
         st.markdown(timeline_html, unsafe_allow_html=True)
 
 with right_col:
+    # GROUP 0: FAN IDENTITY
+    with st.container(border=True):
+        st.markdown('<h4 style="margin-bottom: 5px; color: #fbbf24;">👤 Fan Identity</h4>', unsafe_allow_html=True)
+        name = st.text_input("Enter your Fan Name:", value=st.session_state.fan_name, placeholder="e.g. CricketKing", label_visibility="collapsed")
+        if name != st.session_state.fan_name:
+            st.session_state.fan_name = name
+            st.rerun()
+
     # GROUP 1: HEADER
     with st.container(border=True):
-        st.markdown('<h2 style="color: #000000; margin: 0; text-align: center;">🔥 FAN ZONE</h2>', unsafe_allow_html=True)
-        st.markdown('<p style="color: #000000; font-size: 13px; font-weight: bold; margin: 0; text-align: center;">Live interactions & AI challenges</p>', unsafe_allow_html=True)
+        st.markdown('<h2 style="color: #fbbf24; margin: 0; text-align: center;">🔥 FAN ZONE</h2>', unsafe_allow_html=True)
+        st.markdown('<p style="color: #f8fafc; font-size: 13px; font-weight: bold; margin: 0; text-align: center;">Live interactions & AI challenges</p>', unsafe_allow_html=True)
 
     # GROUP 2: HYPE METER
     with st.container(border=True):
@@ -392,9 +403,15 @@ with right_col:
         st.markdown('<p style="font-size: 11px; color: #f8fafc; font-weight: 600; margin-bottom: 10px; text-align: center;">Boost the match hype score!</p>', unsafe_allow_html=True)
         st.markdown(f'<h2 style="color: #ffffff; margin: 0; text-align: center; text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);">{global_state["hype_score"]}</h2>', unsafe_allow_html=True)
         h_col1, h_col2, h_col3 = st.columns(3)
-        if h_col1.button("🔥", key="btn_fire"): global_state["hype_score"] += 5; st.rerun()
-        if h_col2.button("👏", key="btn_clap"): global_state["hype_score"] += 2; st.rerun()
-        if h_col3.button("😱", key="btn_shock"): global_state["hype_score"] += 3; st.rerun()
+        def add_hype(pts):
+            global_state["hype_score"] += pts
+            if st.session_state.fan_name:
+                global_state["leaderboard"][st.session_state.fan_name] = global_state["leaderboard"].get(st.session_state.fan_name, 0) + pts
+            st.rerun()
+
+        if h_col1.button("🔥", key="btn_fire"): add_hype(5)
+        if h_col2.button("👏", key="btn_clap"): add_hype(2)
+        if h_col3.button("😱", key="btn_shock"): add_hype(3)
 
     # GROUP 3: LIVE POLL (Only show when match is live)
     if state == "in":
@@ -443,6 +460,17 @@ with right_col:
                 <div style="background-color: rgba(255, 255, 255, 0.05); border-radius: 10px; height: 6px; overflow: hidden;"><div style="background-color: #fbbf24; width: {win_prob}%; height: 100%; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div></div>
             </div>""", unsafe_allow_html=True)
         except: pass
+
+    # GROUP 5: 🏆 FAN LEADERBOARD
+    with st.container(border=True):
+        st.markdown('<h4 style="margin-bottom: 5px; color: #fbbf24;">🏆 Top Fans</h4>', unsafe_allow_html=True)
+        if global_state["leaderboard"]:
+            sorted_fans = sorted(global_state["leaderboard"].items(), key=lambda x: x[1], reverse=True)[:5]
+            for i, (fname, fscore) in enumerate(sorted_fans):
+                medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
+                st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 13px; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 5px 0;"><span>{medal} {fname}</span><span style="color: #fbbf24; font-weight: bold;">{fscore} pts</span></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="font-size: 11px; color: #94a3b8; font-style: italic;">No activity yet. Start hyping!</p>', unsafe_allow_html=True)
 
 # 🔄 Auto Refresh Logic
 if auto_refresh:
