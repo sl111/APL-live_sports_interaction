@@ -132,23 +132,30 @@ st.markdown("""
     "glow_alpha": "rgba(239, 68, 68, 0.3)" if insights.get('batting_team') == insights.get('team1') else "rgba(168, 85, 247, 0.3)" if insights.get('batting_team') == insights.get('team2') else "rgba(251, 191, 36, 0.2)"
 }, unsafe_allow_html=True)
 
-# 📊 Initialize State
+# 🌍 Global Shared State (Synchronizes all fans in real-time)
+@st.cache_resource
+def get_global_state():
+    return {
+        "hype_score": 0,
+        "poll_votes": {},
+        "match_id": ""
+    }
+
+global_state = get_global_state()
+
+# 📊 Initialize State (Local & Global)
 if "scores" not in st.session_state: st.session_state.scores = []
-if "hype_score" not in st.session_state: st.session_state.hype_score = 0
-if "poll_votes" not in st.session_state: st.session_state.poll_votes = {}
 if "user_prediction" not in st.session_state: st.session_state.user_prediction = None
 
-# 🔄 Match Tracking (Clear history if match changes)
+# Reset global state if match changes
 current_match_id = f"{insights.get('team1')}_{insights.get('team2')}_{insights.get('date')}"
-if "match_id" not in st.session_state:
-    st.session_state.match_id = current_match_id
-elif st.session_state.match_id != current_match_id:
+if global_state["match_id"] != current_match_id:
+    global_state["match_id"] = current_match_id
+    global_state["hype_score"] = 0
+    global_state["poll_votes"] = {}
     from memory.commentary_memory import clear_history
     clear_history()
     st.session_state.scores = []
-    st.session_state.hype_score = 0
-    st.session_state.poll_votes = {}
-    st.session_state.match_id = current_match_id
 
 def format_event(text):
     if "out" in text.lower() or "wicket" in text.lower(): return f'<span class="wicket">🔴 {text}</span>'
@@ -383,11 +390,11 @@ with right_col:
     with st.container(border=True):
         st.markdown('<h4 style="margin-bottom: 5px; color: #fbbf24; text-align: center;">⚡ Hype Meter</h4>', unsafe_allow_html=True)
         st.markdown('<p style="font-size: 11px; color: #f8fafc; font-weight: 600; margin-bottom: 10px; text-align: center;">Boost the match hype score!</p>', unsafe_allow_html=True)
-        st.markdown(f'<h2 style="color: #ffffff; margin: 0; text-align: center; text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);">{st.session_state.hype_score}</h2>', unsafe_allow_html=True)
+        st.markdown(f'<h2 style="color: #ffffff; margin: 0; text-align: center; text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);">{global_state["hype_score"]}</h2>', unsafe_allow_html=True)
         h_col1, h_col2, h_col3 = st.columns(3)
-        if h_col1.button("🔥", key="btn_fire"): st.session_state.hype_score += 5; st.rerun()
-        if h_col2.button("👏", key="btn_clap"): st.session_state.hype_score += 2; st.rerun()
-        if h_col3.button("😱", key="btn_shock"): st.session_state.hype_score += 3; st.rerun()
+        if h_col1.button("🔥", key="btn_fire"): global_state["hype_score"] += 5; st.rerun()
+        if h_col2.button("👏", key="btn_clap"): global_state["hype_score"] += 2; st.rerun()
+        if h_col3.button("😱", key="btn_shock"): global_state["hype_score"] += 3; st.rerun()
 
     # GROUP 3: LIVE POLL (Only show when match is live)
     if state == "in":
@@ -396,12 +403,12 @@ with right_col:
             st.markdown('<p style="color: #f8fafc; font-size: 11px; font-weight: 600;">Predict which team loses the next wicket.</p>', unsafe_allow_html=True)
             p_opt = st.radio("Who goes next?", [insights['team1'], insights['team2']], key="poll_radio", horizontal=True)
             if st.button("Vote Now", key="vote_btn", use_container_width=True):
-                st.session_state.poll_votes[p_opt] = st.session_state.poll_votes.get(p_opt, 0) + 1
+                global_state["poll_votes"][p_opt] = global_state["poll_votes"].get(p_opt, 0) + 1
                 st.toast(f"Voted for {p_opt}!")
                 st.rerun()
             
-            t1_v = st.session_state.poll_votes.get(insights['team1'], 0)
-            t2_v = st.session_state.poll_votes.get(insights['team2'], 0)
+            t1_v = global_state["poll_votes"].get(insights['team1'], 0)
+            t2_v = global_state["poll_votes"].get(insights['team2'], 0)
             total = t1_v + t2_v
             st.progress(t1_v / total if total > 0 else 0.5)
             st.markdown(f'<p style="font-size: 11px; font-weight: bold; margin-top: 5px;">Fan Sentiment: {insights["team1"]} ({t1_v}) vs {insights["team2"]} ({t2_v})</p>', unsafe_allow_html=True)
@@ -411,7 +418,7 @@ with right_col:
             st.markdown('<p style="color: #f8fafc; font-size: 11px; font-weight: 600;">Who will win today?</p>', unsafe_allow_html=True)
             p_opt = st.radio("Pick a winner", [insights['team1'], insights['team2']], key="pre_poll_radio", horizontal=True)
             if st.button("Vote Now", key="pre_vote_btn", use_container_width=True):
-                st.session_state.poll_votes[p_opt] = st.session_state.poll_votes.get(p_opt, 0) + 1
+                global_state["poll_votes"][p_opt] = global_state["poll_votes"].get(p_opt, 0) + 1
                 st.toast(f"Voted for {p_opt}!")
                 st.rerun()
 
