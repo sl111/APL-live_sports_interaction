@@ -8,3 +8,7 @@ def add_commentary(text):
 
 def get_history():
     return commentary_history[-3:]
+
+def clear_history():
+    global commentary_history
+    commentary_history.clear()

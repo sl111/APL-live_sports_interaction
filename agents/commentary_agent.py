@@ -18,12 +18,28 @@ def generate_commentary(insights):
     history_list = get_history()
     history = "\n".join(history_list) if history_list else "No previous commentary."
 
-    # 🎯 Adjust logic for Finished Matches
+    # 🎯 Adjust logic based on Match Status & Innings
     match_status_instruction = ""
-    if insights.get("state") == "post":
-        match_status_instruction = "- The match has FINISHED. Summarize a DIFFERENT aspect of the game (e.g. the winner's performance, the close finish, or the venue atmosphere). Be unique."
+    state = insights.get("state")
+    score1 = insights.get("score1", "")
+    score2 = insights.get("score2", "")
+    
+    if state == "post":
+        match_status_instruction = "- The match has FINISHED. Summarize the result or highlight a key performer. Be unique."
+    elif state == "pre":
+        match_status_instruction = "- The match has NOT started yet. Talk about the upcoming clash and the venue. DO NOT mention scores, targets, or runs needed."
+    elif "Yet to bat" in score2:
+        match_status_instruction = "- The match is in the 1st INNINGS. Talk about the current run rate, boundaries, or the batting team's start. DO NOT mention runs needed or targets."
     else:
-        match_status_instruction = "- Mention runs needed, balls left. Build drama if the match is close."
+        match_status_instruction = "- The match is in the 2nd INNINGS (The Chase). Mention runs needed, balls left, and the required run rate. Build drama."
+
+    # 🧹 Clean up insights for the prompt to prevent confusion
+    clean_insights = insights.copy()
+    if state == "pre":
+        clean_insights.pop("score1", None)
+        clean_insights.pop("score2", None)
+    elif "Yet to bat" in score2:
+        clean_insights.pop("score2", None)
 
     # 🎯 Strong prompt for better output
     prompt = f"""
@@ -40,7 +56,7 @@ Previous commentary:
 {history}
 
 Current match data:
-{insights}
+{clean_insights}
 
 Instructions:
 {match_status_instruction}
