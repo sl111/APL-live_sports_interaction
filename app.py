@@ -355,7 +355,7 @@ with left_col:
         try:
             s1, s2 = insights.get('score1', ''), insights.get('score2', '')
             active_score = s2 if "(" in s2 else s1
-            active_team = insights.get('batting_team', 'Team')
+            active_team = insights.get('team2_short', 'T2') if "(" in s2 else insights.get('team1_short', 'T1')
             r, w, o = parse_score_details(active_score)
             
             # CRR Check (Prevent crazy numbers)
@@ -412,7 +412,7 @@ with left_col:
         try:
             s1, s2 = insights.get('score1', ''), insights.get('score2', '')
             active_score = s2 if "(" in s2 else s1
-            active_team = insights.get('batting_team', 'Team')
+            active_team = insights.get('team2_short', 'T2') if "(" in s2 else insights.get('team1_short', 'T1')
             r, w, o = parse_score_details(active_score)
             crr = r / o
             
