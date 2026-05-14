@@ -355,6 +355,7 @@ with left_col:
         try:
             s1, s2 = insights.get('score1', ''), insights.get('score2', '')
             active_score = s2 if "(" in s2 else s1
+            active_team = insights.get('batting_team', 'Team')
             r, w, o = parse_score_details(active_score)
             
             # CRR Check (Prevent crazy numbers)
@@ -375,10 +376,10 @@ with left_col:
 
             st.markdown(f"""
             <div class="card" style="text-align: center;">
-                <h1 style="color: #fbbf24; font-size: 56px; margin: 0;">{win_p}%%</h1>
-                <p style="color: #f8fafc; font-weight: 600;">AI WIN CHANCE</p>
+                <h1 style="color: #fbbf24; font-size: 56px; margin: 0;">{win_p}%</h1>
+                <p style="color: #f8fafc; font-weight: 600;">{active_team.upper()} WIN CHANCE</p>
                 <div style="background: rgba(255,255,255,0.05); border-radius: 20px; height: 12px; width: 100%;">
-                    <div style="background: #fbbf24; width: {win_p}%%; height: 100%; border-radius: 20px;"></div>
+                    <div style="background: #fbbf24; width: {win_p}%; height: 100%; border-radius: 20px;"></div>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
                     <div><p style="color: #94a3b8; font-size: 11px;">PROJECTED</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold;">{projected}</p></div>
@@ -411,15 +412,16 @@ with left_col:
         try:
             s1, s2 = insights.get('score1', ''), insights.get('score2', '')
             active_score = s2 if "(" in s2 else s1
+            active_team = insights.get('batting_team', 'Team')
             r, w, o = parse_score_details(active_score)
             crr = r / o
             
             # Correct Pressure Logic: Factor in Wickets and Run Rate gaps
             pressure = min(100, max(5, (8.5 - crr) * 12 + (w * 15)))
             
-            st.metric("Innings Pressure", f"{pressure:.1f}%%", delta=f"{crr:.2f} CRR", delta_color="inverse")
+            st.metric(f"{active_team} Pressure", f"{pressure:.1f}%", delta=f"{crr:.2f} CRR", delta_color="inverse")
             st.progress(pressure/100)
-            st.caption("AI Note: Pressure increases as run rate drops or wickets fall.")
+            st.caption(f"AI Note: {active_team} pressure increases as run rate drops or wickets fall.")
         except: st.info("Analyzing match pressure...")
 
     # 🕒 Timeline
