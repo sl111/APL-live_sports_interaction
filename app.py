@@ -392,7 +392,18 @@ with right_col:
             st.session_state.fan_name = name
             st.rerun()
 
-    # GROUP 1: HEADER
+    # GROUP 1: 🏆 TOP 3 FANS (Elite Placement)
+    with st.container(border=True):
+        st.markdown('<h4 style="margin-bottom: 5px; color: #fbbf24; text-align: center;">🏆 Hall of Fame</h4>', unsafe_allow_html=True)
+        if global_state["leaderboard"]:
+            sorted_fans = sorted(global_state["leaderboard"].items(), key=lambda x: x[1], reverse=True)[:3]
+            for i, (fname, fscore) in enumerate(sorted_fans):
+                medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉"
+                st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 14px; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 8px 0;"><span>{medal} {fname}</span><span style="color: #fbbf24; font-weight: bold;">{fscore} pts</span></div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="font-size: 11px; color: #94a3b8; font-style: italic; text-align: center;">No activity yet. Boost the hype!</p>', unsafe_allow_html=True)
+
+    # GROUP 2: HEADER
     with st.container(border=True):
         st.markdown('<h2 style="color: #fbbf24; margin: 0; text-align: center;">🔥 FAN ZONE</h2>', unsafe_allow_html=True)
         st.markdown('<p style="color: #f8fafc; font-size: 13px; font-weight: bold; margin: 0; text-align: center;">Live interactions & AI challenges</p>', unsafe_allow_html=True)
@@ -461,16 +472,7 @@ with right_col:
             </div>""", unsafe_allow_html=True)
         except: pass
 
-    # GROUP 5: 🏆 FAN LEADERBOARD
-    with st.container(border=True):
-        st.markdown('<h4 style="margin-bottom: 5px; color: #fbbf24;">🏆 Top Fans</h4>', unsafe_allow_html=True)
-        if global_state["leaderboard"]:
-            sorted_fans = sorted(global_state["leaderboard"].items(), key=lambda x: x[1], reverse=True)[:5]
-            for i, (fname, fscore) in enumerate(sorted_fans):
-                medal = "🥇" if i == 0 else "🥈" if i == 1 else "🥉" if i == 2 else "👤"
-                st.markdown(f'<div style="display: flex; justify-content: space-between; font-size: 13px; color: #f8fafc; border-bottom: 1px solid rgba(255,255,255,0.05); padding: 5px 0;"><span>{medal} {fname}</span><span style="color: #fbbf24; font-weight: bold;">{fscore} pts</span></div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<p style="font-size: 11px; color: #94a3b8; font-style: italic;">No activity yet. Start hyping!</p>', unsafe_allow_html=True)
+        except: pass
 
 # 🔄 Auto Refresh Logic
 if auto_refresh:
