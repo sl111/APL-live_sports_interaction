@@ -1,3 +1,5 @@
 requests
 google-generativeai
 groq
+python-dotenv
+pandas
