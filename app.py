@@ -158,20 +158,31 @@ def format_event(text):
     elif "1" in text: return f'<span class="run1">🟢 {text}</span>'
     else: return text
 
-# 🎙️ AI Commentary Engine (Limit post-match to 3 unique lines)
-state = insights.get("state", "pre")
-history = get_history()
-finished_commentary_count = sum(1 for c in history if "won" in c.lower() or "final" in c.lower() or state == "post")
-
-if state == "post" and len(history) >= 3:
-    # If match is finished and we already have 3 highlights, just use the last one
-    commentary = history[-1] if history else "Match Finished."
+# 🎙️ AI Commentary & Prediction Engine (Optimized)
+# We only call the AI if the match state has changed to prevent lag on button clicks
+current_ball = insights.get("last_event", "")
+if "commentary" not in st.session_state or st.session_state.get("last_ball") != current_ball:
+    with st.spinner("🤖 AI analyzing match..."):
+        state = insights.get("state", "pre")
+        history = get_history()
+        
+        # Limit post-match to 3 unique lines
+        if state == "post" and len(history) >= 3:
+            commentary = history[-1] if history else "Match Finished."
+        else:
+            commentary = generate_commentary(insights)
+            if "Error" not in commentary:
+                add_commentary(commentary)
+        
+        prediction = predict_winner(insights)
+        
+        # Save to session state so button clicks don't re-trigger AI
+        st.session_state.commentary = commentary
+        st.session_state.prediction = prediction
+        st.session_state.last_ball = current_ball
 else:
-    commentary = generate_commentary(insights)
-    if "Error" not in commentary:
-        add_commentary(commentary)
-
-prediction = predict_winner(insights)
+    commentary = st.session_state.commentary
+    prediction = st.session_state.prediction
 
 # Update Graph Data (Builds during LIVE match)
 try:
