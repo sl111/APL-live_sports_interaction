@@ -1,6 +1,7 @@
 import streamlit as st
 import time
 import pandas as pd
+import re
 from data.fetch_data import get_match_data
 from agents.insight_agent import analyze_match
 from agents.commentary_agent import generate_commentary
@@ -160,10 +161,48 @@ if global_state["match_id"] != current_match_id:
     clear_history()
     st.session_state.scores = []
 
+def cricket_overs_to_decimal(overs_str):
+    try:
+        parts = str(overs_str).split(".")
+        if len(parts) == 2:
+            return int(parts[0]) + (int(parts[1]) / 6.0)
+        return float(parts[0])
+    except: return 0.1
+
+def parse_score_details(score_str):
+    try:
+        # Extract runs/wickets
+        runs = int(score_str.split("/")[0])
+        wickets = int(score_str.split("/")[1].split(" ")[0]) if "/" in score_str else 0
+        
+        # Look for overs in common formats: (1.3/20) or (1.3 ov) or just 1.3
+        over_match = re.search(r'\((\d+\.\d+)', score_str)
+        if over_match:
+            o_raw = over_match.group(1)
+        else:
+            # Fallback for simpler strings
+            o_raw = "0.1"
+            
+        return runs, wickets, cricket_overs_to_decimal(o_raw)
+    except: return 0, 0, 0.1
+
+# 📊 GLOBAL DATA TRACKER (Runs every refresh)
+try:
+    s1, s2 = insights.get('score1', ''), insights.get('score2', '')
+    active_s = s2 if "(" in s2 else s1
+    r_val, w_val, o_val = parse_score_details(active_s)
+    
+    # Only track if we have valid overs to prevent '40000' projection
+    if o_val > 0.1:
+        # Prevent duplicates in momentum
+        if not st.session_state.scores or st.session_state.scores[-1]["Overs"] != o_val:
+            st.session_state.scores.append({"Overs": o_val, "Runs": r_val})
+except: pass
+
 def format_event(text):
     if "out" in text.lower() or "wicket" in text.lower(): return f'<span class="wicket">🔴 {text}</span>'
-    elif "6" in text: return f'<span class="run6">🟡 {text}</span>'
-    elif "4" in text: return f'<span class="run4">🟣 {text}</span>'
+    elif "6" in text: return f'<span class="run6">💎 {text}</span>'
+    elif "4" in text: return f'<span class="run4">✨ {text}</span>'
     elif "2" in text: return f'<span class="run2">🔵 {text}</span>'
     elif "1" in text: return f'<span class="run1">🟢 {text}</span>'
     else: return text
@@ -304,46 +343,50 @@ with left_col:
     tab1, tab2, tab3, tab4 = st.tabs(["🚀 Momentum", "⚖️ Win Prob", "🏏 Scoring Mix", "📉 Pressure"])
     
     with tab1:
-        st.caption("Match Momentum: Runs progression over time.")
-        if len(st.session_state.scores) > 1:
-            df = pd.DataFrame(st.session_state.scores, columns=["Overs", "Runs"])
-            st.line_chart(df.set_index("Overs"), height=200)
+        st.markdown('<h4 style="color: #fbbf24;">📈 Match Momentum</h4>', unsafe_allow_html=True)
+        if len(st.session_state.scores) > 0:
+            df = pd.DataFrame(st.session_state.scores)
+            st.line_chart(df.set_index("Overs")["Runs"])
         else:
-            st.info("Momentum chart builds as more overs are bowled.")
+            st.info("Momentum chart is warming up (starts after 1 over).")
 
     with tab2:
         st.markdown('<h3 style="color: #fbbf24; text-align: center;">🏆 Match Projection</h3>', unsafe_allow_html=True)
         try:
-            # AI Victory Prediction Logic (Works from Ball 1)
-            score_text = insights.get('score1', "0/0 (0 ov)")
-            runs = int(score_text.split("/")[0]) if "/" in score_text else 0
-            overs_raw = score_text.split("(")[1].split(" ")[0] if "(" in score_text else "0.1"
-            overs = float(overs_raw)
-            crr = (runs / overs) if overs > 0 else 0
-            projected = int(crr * 20)
+            s1, s2 = insights.get('score1', ''), insights.get('score2', '')
+            active_score = s2 if "(" in s2 else s1
+            r, w, o = parse_score_details(active_score)
             
-            # Smart Win Probability (Projected)
-            win_p = 50 
-            if projected > 190: win_p = 80
-            elif projected > 170: win_p = 65
-            elif projected < 140: win_p = 30
+            # CRR Check (Prevent crazy numbers)
+            crr = r / o if o > 0.2 else 0
+            projected = int(crr * 20) if o > 0.2 else 0
+            
+            # Win probability logic
+            win_p = 50
+            if "target" in active_score: # Run Chase
+                target_match = re.search(r'target (\d+)', active_score)
+                target = int(target_match.group(1)) if target_match else 180
+                needed = target - r
+                win_p = 100 if needed <= 0 else 85 if needed <= 15 else 45
+            else: # 1st Innings
+                if projected > 190: win_p = 75
+                elif projected > 160: win_p = 55
+                elif projected < 140: win_p = 35
 
             st.markdown(f"""
             <div class="card" style="text-align: center;">
-                <h1 style="color: #fbbf24; font-size: 56px; margin: 0; text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);">{win_p}%%</h1>
-                <p style="color: #f8fafc; font-weight: 600; margin-bottom: 20px;">AI WIN CHANCE</p>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 20px; height: 12px; width: 100%; border: 1px solid rgba(251, 191, 36, 0.2);">
-                    <div style="background: linear-gradient(90deg, #fbbf24, #fcd34d); width: {win_p}%%; height: 100%; border-radius: 20px; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);"></div>
+                <h1 style="color: #fbbf24; font-size: 56px; margin: 0;">{win_p}%%</h1>
+                <p style="color: #f8fafc; font-weight: 600;">AI WIN CHANCE</p>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 20px; height: 12px; width: 100%;">
+                    <div style="background: #fbbf24; width: {win_p}%%; height: 100%; border-radius: 20px;"></div>
                 </div>
                 <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
-                    <div><p style="color: #94a3b8; font-size: 11px; margin: 0;">PROJECTED</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold; margin: 0;">{projected}</p></div>
-                    <div><p style="color: #94a3b8; font-size: 11px; margin: 0;">RUN RATE</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold; margin: 0;">{crr:.2f}</p></div>
+                    <div><p style="color: #94a3b8; font-size: 11px;">PROJECTED</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold;">{projected}</p></div>
+                    <div><p style="color: #94a3b8; font-size: 11px;">RUN RATE</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold;">{crr:.2f}</p></div>
                 </div>
             </div>
             """, unsafe_allow_html=True)
-            st.success(prediction)
-        except: 
-            st.info("AI is analyzing the opening overs...")
+        except: st.info("Analyzing opening overs...")
 
     with tab3:
         st.caption("🏏 **Match Stats**: Direct comparison of Runs and Wickets.")
@@ -366,21 +409,18 @@ with left_col:
     with tab4:
         st.markdown('<h3 style="color: #fbbf24;">🔥 Pressure Index</h3>', unsafe_allow_html=True)
         try:
-            # Generic Pressure Logic (CRR vs 8.5 Baseline)
-            score_text = insights.get('score1', "0/0 (0 ov)")
-            runs = int(score_text.split("/")[0])
-            overs = float(score_text.split("(")[1].split(" ")[0]) if "(" in score_text else 0.1
-            crr = (runs / overs) if overs > 0 else 0
+            s1, s2 = insights.get('score1', ''), insights.get('score2', '')
+            active_score = s2 if "(" in s2 else s1
+            r, w, o = parse_score_details(active_score)
+            crr = r / o
             
-            # Pressure is high if CRR < 7.0 or if wickets are falling
-            wickets = int(score_text.split("/")[1].split(" ")[0]) if "/" in score_text else 0
-            pressure = min(100, max(10, (8.5 - crr) * 15 + (wickets * 10)))
+            # Correct Pressure Logic: Factor in Wickets and Run Rate gaps
+            pressure = min(100, max(5, (8.5 - crr) * 12 + (w * 15)))
             
-            st.metric("Current Pressure", f"{pressure:.1f}%%", delta=f"{crr:.2f} CRR", delta_color="inverse")
+            st.metric("Innings Pressure", f"{pressure:.1f}%%", delta=f"{crr:.2f} CRR", delta_color="inverse")
             st.progress(pressure/100)
-            st.caption("AI Note: High pressure indicates a high probability of a wicket in the next 12 balls.")
-        except: 
-            st.info("Pressure Index will stabilize after the first over.")
+            st.caption("AI Note: Pressure increases as run rate drops or wickets fall.")
+        except: st.info("Analyzing match pressure...")
 
     # 🕒 Timeline
     st.markdown("### 🕒 Latest 3 Highlights")
