@@ -312,30 +312,38 @@ with left_col:
             st.info("Momentum chart builds as more overs are bowled.")
 
     with tab2:
-        st.caption("🏆 **Match Favorite**: Current chance of victory or projection.")
+        st.markdown('<h3 style="color: #fbbf24; text-align: center;">🏆 Match Projection</h3>', unsafe_allow_html=True)
         try:
-            if "target" in insights["score1"]:
-                score_text = insights["score1"]
-                target = int(score_text.split("target")[1].strip().replace(")", ""))
-                runs = int(score_text.split("/")[0])
-                needed = target - runs
-                win_p = 100 if needed <= 0 else 80 if needed <= 10 else 55 if needed <= 30 else 30
-                
-                st.markdown(f"""
-                <div style="text-align: center; padding: 20px 0;">
-                    <h1 style="color: #22c55e; font-size: 48px; margin: 0;">{win_p}%</h1>
-                    <p style="color: #9ca3af; margin-bottom: 20px;">Winning Chance for {insights['team1_short']}</p>
-                    <div style="background-color: #374151; border-radius: 10px; height: 15px; width: 100%;">
-                        <div style="background-color: #22c55e; width: {win_p}%; height: 100%; border-radius: 10px; transition: width 1s ease-in-out;"></div>
-                    </div>
+            # AI Victory Prediction Logic (Works from Ball 1)
+            score_text = insights.get('score1', "0/0 (0 ov)")
+            runs = int(score_text.split("/")[0]) if "/" in score_text else 0
+            overs_raw = score_text.split("(")[1].split(" ")[0] if "(" in score_text else "0.1"
+            overs = float(overs_raw)
+            crr = (runs / overs) if overs > 0 else 0
+            projected = int(crr * 20)
+            
+            # Smart Win Probability (Projected)
+            win_p = 50 
+            if projected > 190: win_p = 80
+            elif projected > 170: win_p = 65
+            elif projected < 140: win_p = 30
+
+            st.markdown(f"""
+            <div class="card" style="text-align: center;">
+                <h1 style="color: #fbbf24; font-size: 56px; margin: 0; text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);">{win_p}%%</h1>
+                <p style="color: #f8fafc; font-weight: 600; margin-bottom: 20px;">AI WIN CHANCE</p>
+                <div style="background: rgba(255,255,255,0.05); border-radius: 20px; height: 12px; width: 100%; border: 1px solid rgba(251, 191, 36, 0.2);">
+                    <div style="background: linear-gradient(90deg, #fbbf24, #fcd34d); width: {win_p}%%; height: 100%; border-radius: 20px; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4);"></div>
                 </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.info("Win probability will appear during the run chase.")
-                if state == "in":
-                    st.success(prediction) # Shows projected score
+                <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+                    <div><p style="color: #94a3b8; font-size: 11px; margin: 0;">PROJECTED</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold; margin: 0;">{projected}</p></div>
+                    <div><p style="color: #94a3b8; font-size: 11px; margin: 0;">RUN RATE</p><p style="color: #fbbf24; font-size: 18px; font-weight: bold; margin: 0;">{crr:.2f}</p></div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            st.success(prediction)
         except: 
-            st.info("Waiting for more match data to calculate odds.")
+            st.info("AI is analyzing the opening overs...")
 
     with tab3:
         st.caption("🏏 **Match Stats**: Direct comparison of Runs and Wickets.")
@@ -356,22 +364,23 @@ with left_col:
         except: st.info("Match stats will appear once the game is underway.")
 
     with tab4:
-        st.caption("Pressure Index: Calculated based on Required Run Rate.")
+        st.markdown('<h3 style="color: #fbbf24;">🔥 Pressure Index</h3>', unsafe_allow_html=True)
         try:
-            if "target" in insights["score1"] and "(" in insights["score2"]:
-                overs_val = float(insights["score2"].split("(")[1].split(" ")[0])
-                target = int(insights["score1"].split("target")[1].strip().replace(")", ""))
-                runs = int(insights["score1"].split("/")[0])
-                needed = target - runs
-                rrr = needed / (20.0 - overs_val) if overs_val < 20 else 0
-                pressure = min(100, rrr * 8)
-                st.metric("Current Pressure", f"{pressure:.1f}%", delta=f"{rrr:.2f} RRR", delta_color="inverse")
-                st.progress(pressure/100)
-                st.caption("Higher pressure means a wicket is more likely in the next over!")
-            else:
-                st.info("Pressure index is most accurate during the run chase.")
+            # Generic Pressure Logic (CRR vs 8.5 Baseline)
+            score_text = insights.get('score1', "0/0 (0 ov)")
+            runs = int(score_text.split("/")[0])
+            overs = float(score_text.split("(")[1].split(" ")[0]) if "(" in score_text else 0.1
+            crr = (runs / overs) if overs > 0 else 0
+            
+            # Pressure is high if CRR < 7.0 or if wickets are falling
+            wickets = int(score_text.split("/")[1].split(" ")[0]) if "/" in score_text else 0
+            pressure = min(100, max(10, (8.5 - crr) * 15 + (wickets * 10)))
+            
+            st.metric("Current Pressure", f"{pressure:.1f}%%", delta=f"{crr:.2f} CRR", delta_color="inverse")
+            st.progress(pressure/100)
+            st.caption("AI Note: High pressure indicates a high probability of a wicket in the next 12 balls.")
         except: 
-            st.info("Pressure index unavailable for current match state.")
+            st.info("Pressure Index will stabilize after the first over.")
 
     # 🕒 Timeline
     st.markdown("### 🕒 Latest 3 Highlights")
