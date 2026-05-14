@@ -458,18 +458,34 @@ with right_col:
         if st.button("Submit Prediction", key="sub_btn", use_container_width=True):
             st.session_state.user_prediction = user_pred; st.success(f"Recorded: {user_pred}!")
 
-        # Unified AI Win Prob
+        # Unified AI Win Prob & Pressure Index
         try:
-            score_text = insights["score1"]; target = int(score_text.split("target")[1].strip().replace(")", ""))
-            runs = int(score_text.split("/")[0]); needed = target - runs
-            win_prob = 100 if needed <= 0 else 80 if needed <= 10 else 55 if needed <= 30 else 30
-            st.markdown(f"""
-            <div style="margin-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 10px;">
-                <h4 style="margin-bottom: 5px; color: #fbbf24;">🤖 AI Win Probability</h4>
-                <p style="font-size: 10px; color: #f8fafc; font-weight: 600; margin-bottom: 10px;">Real-time victory chance</p>
-                <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ffffff; font-weight: bold;"><span>{insights['team1_short']}</span><span>{win_prob}%</span></div>
-                <div style="background-color: rgba(255, 255, 255, 0.05); border-radius: 10px; height: 6px; overflow: hidden;"><div style="background-color: #fbbf24; width: {win_prob}%; height: 100%; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div></div>
-            </div>""", unsafe_allow_html=True)
+            # Check which score has the 'target'
+            s1, s2 = insights.get("score1", ""), insights.get("score2", "")
+            target_score = s1 if "target" in s1 else s2 if "target" in s2 else None
+            active_score = s2 if "target" in s2 else s1 # The team currently chasing
+            
+            if target_score and "(" in active_score:
+                # Calculate Win Prob
+                target = int(target_score.split("target")[1].strip().replace(")", ""))
+                runs = int(active_score.split("/")[0])
+                needed = target - runs
+                win_prob = 100 if needed <= 0 else 85 if needed <= 10 else 55 if needed <= 40 else 30
+                
+                # Calculate Pressure
+                overs_val = float(active_score.split("(")[1].split(" ")[0])
+                rrr = needed / (20.0 - overs_val) if overs_val < 20 else 0
+                pressure = min(100, rrr * 8)
+
+                st.markdown(f"""
+                <div style="margin-top: 15px; border-top: 1px solid rgba(255, 255, 255, 0.1); padding-top: 10px;">
+                    <h4 style="margin-bottom: 5px; color: #fbbf24;">🤖 AI Win Probability</h4>
+                    <p style="font-size: 10px; color: #f8fafc; font-weight: 600; margin-bottom: 10px;">Pressure: {pressure:.1f}%% | Req. Rate: {rrr:.2f}</p>
+                    <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ffffff; font-weight: bold;"><span>{insights['team2_short']}</span><span>{win_prob}%%</span></div>
+                    <div style="background-color: rgba(255, 255, 255, 0.05); border-radius: 10px; height: 6px; overflow: hidden;"><div style="background-color: #fbbf24; width: {win_prob}%%; height: 100%; box-shadow: 0 0 10px rgba(251, 191, 36, 0.5);"></div></div>
+                </div>""", unsafe_allow_html=True)
+            else:
+                st.info("AI Win Probability will activate as the chase intensifies.")
         except: pass
 
 # 🔄 Auto Refresh Logic
